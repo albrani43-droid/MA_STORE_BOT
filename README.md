@@ -1,14 +1,39 @@
-# MA STORE BOT
+# M A Store Bot — الإصدار 2
 
-Node.js Facebook Messenger + Page comments AI bot.
+## ماذا يحتوي؟
+- الرد على رسائل Messenger والتعليقات باستخدام OpenAI.
+- تجميع رسائل الزبون خلال 10–20 ثانية والرد عليها معاً، وحفظ سياق آخر 32 رسالة لكل زبون في PostgreSQL.
+- تحليل صور الزبائن ومقارنتها بصور المنتجات الأربعة الأصلية (التعرّف تقريبي، وليس مضموناً 100%).
+- إرسال صور الألوان الأخرى لنفس المنتج عند السؤال عنها، وعدم تكرار لون الصورة المرسلة.
+- حفظ طلبات الزبائن في PostgreSQL بعد التأكيد؛ الاسم اختياري، الهاتف المحلي 10 أرقام، والمقاس والعنوان ضروريان.
+- الأسعار: الشتوي 95 د.ل (40–45، أسود/بيج)، والسبورت 115 د.ل (41–47، كحلي/أبيض)، بدون توصيل.
+- لا يوجد ربط مع النورس حالياً، ولا يوجد إرسال واتساب.
 
-1. Upload `server.js` and `package.json` to the repository root (not inside a nested folder).
-2. In Render > Environment set PAGE_ACCESS_TOKEN, VERIFY_TOKEN, META_APP_SECRET, PAGE_ID, OPENAI_API_KEY. Optionally OPENAI_MODEL and GRAPH_API_VERSION.
-3. Render build: `npm install`; start: `npm start`.
-4. Keep your existing Meta webhook callback URL: `https://YOUR-RENDER-SERVICE.onrender.com/webhook` and existing VERIFY_TOKEN.
-5. Subscribe the Page to `messages` and `feed` webhook events, with required Meta permissions and app access. Ensure the Page access token belongs to that Page.
-6. Test a message and a new comment from a separate account. Review Render logs for API errors.
+## الرفع إلى GitHub
+1. **احتفظ بنسخة احتياطية** من ملفات المشروع الحالية أولاً.
+2. ارفع محتويات هذا المجلد إلى **جذر المستودع**: `server.js`, `package.json`, `catalog.json`, `delivery-prices.json`, ومجلد `images` بكامل محتوياته. لا ترفع المجلد الأب كملف مضغوط إذا كنت تستعمل واجهة GitHub العادية.
+3. في Render تأكد من متغيرات البيئة القديمة: `PAGE_ACCESS_TOKEN`, `VERIFY_TOKEN`, `META_APP_SECRET`, `PAGE_ID`, `OPENAI_API_KEY`.
+4. **جديد ومطلوب**: أنشئ قاعدة PostgreSQL دائمة وأضف `DATABASE_URL` إلى Environment. التطبيق **لن يبدأ** بدونها لحماية الحجوزات من الضياع.
+5. **جديد ومطلوب لإرسال الصور**: أضف `PUBLIC_BASE_URL` وهو رابط خدمة Render العامة، مثل `https://my-bot.onrender.com` من غير `/` في النهاية. تأكد أن `https://my-bot.onrender.com/images/winter-black.jpg` يفتح الصورة علناً.
+6. أمر البناء `npm install`، وأمر التشغيل `npm start`. حافظ على رابط Meta Webhook الحالي `/webhook` وVerify Token نفسه.
+7. جرّب من حساب فيسبوك منفصل، وراقب Render Logs. لا تنشر أسرار API في GitHub.
 
-Security: Never commit real secrets to GitHub. `.env.example` is placeholders only.
+## أسعار التوصيل
+ملف `delivery-prices.json` فارغ الآن عمداً: `{}`. ضَع فيه الأسعار الصحيحة فقط. مثال **للتوضيح لا للاعتماد**:
 
-Limitations: Deduplication is in-memory and resets on restart; production deployments with multiple instances should use persistent event IDs and a job queue. Replies are processed asynchronously after HTTP acknowledgement. Meta Graph API version must be supported and permissions approved. AI usage incurs API charges. No live catalog is connected; bot does not know prices or stock.
+```json
+{
+  "طرابلس|أبوسليم شارع بورسعيد": 15,
+  "مصراتة": 20
+}
+```
+
+البرنامج يبحث أولاً عن تطابق `المدينة|العنوان`، ثم عن المدينة. **لو السعر غير موجود لن يخترع إجمالياً ولن يؤكد الحجز النهائي**. لذلك قبل تشغيل الحجز الكامل، أدخل أسعار التوصيل الفعلية. لاحقاً يمكن استبدال هذا الملف بالاستعلام من API النورس.
+
+## قيود يجب معرفتها
+- مؤقت تجميع الرسائل في ذاكرة السيرفر؛ إعادة تشغيل Render أثناء الانتظار قد تفقد الرسائل التي لم تُعالج بعد. للتشغيل التجاري الكبير يفضل طابور مهام دائم.
+- مطابقة الصور بالذكاء الاصطناعي تقريبية وقد تخطئ؛ لا تستخدمها وحدها لاتخاذ قرارات مالية حساسة.
+- من الأفضل إضافة سجل لمخزون المقاسات، لأن نطاق المقاسات لا يعني بالضرورة أن كل مقاس متوفر في المخزون الآن.
+- `processed_events` يمنع تكرار الرسائل، لكنه يسجل الحدث قبل المعالجة؛ لو حدث فشل أثناء المعالجة يحتاج تدخل/إعادة إرسال.
+- لتشغيل Messenger على الإنتاج تحتاج أذونات Meta المناسبة. إرسال الصور يحتاج رابط HTTPS عام.
+- لا تُدخل مفاتيح النورس أو كلمات مرور الحساب في أي ملف بالمستودع. غيّر المفاتيح وكلمات المرور التي كُشفت في المحادثة.
