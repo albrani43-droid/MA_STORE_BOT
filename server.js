@@ -8,7 +8,7 @@ app.use(bodyParser.json());
 
 // تحقق من الـ Webhook الخاص بفيسبوك
 app.get('/webhook', (req, res) => {
-    const VERIFY_TOKEN = "ma_store_verify_token";
+    const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "ma_store_verify_token";
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -38,25 +38,24 @@ app.post('/webhook', async (req, res) => {
                     console.log(`رسالة خاصة من ${senderPsid}: ${userMessage}`);
 
                     try {
-                        // تعليمات واضحة لنموذج جيميناي عشان ما يقعدش يكرر نفسه ويرد بذكاء حسب المتجر
-                        const systemPrompt = `أنت مساعد مبيعات ذكي وودود لمتجر إلكتروني يسمى M_A Store. 
-سعر المنتج الحالي هو 115 دينار. 
-موقع المتجر الرئيسي هو قصر الأخيار - العلوص.
-سعر التوصيل يعتمد على المنطقة، مثلاً التوصيل لقصر الأخيار أو المناطق المجاورة يتم توضيحه بأسعار مناسبة.
-أجب على أسئلة الزبائن بطريقة لطيفة ومباشرة وباللهجة المناسبة ولا تكرر نفس الجملة الببغائية التلقائية، وكن مفيداً دائماً.`;
+                        // إرسال طلب ذكي ومرن لجيميناي يفهم سياق المتجر (M_A Store)
+                        const promptText = `أنت مساعد مبيعات لمتجر M_A Store. موقعنا في قصر الأخيار - العلوص. سعر المنتج 115 دينار. أجب على سؤال الزبون التالي بدقة وبدون تكرار: "${userMessage}"`;
 
                         const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [
-                                    { role: "user", parts: [{ text: systemPrompt + "\n\nسؤال الزبون: " + userMessage }] }
+                                    { parts: [{ text: promptText }] }
                                 ]
                             })
                         });
 
                         const data = await geminiResponse.json();
-                        const botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "أهلاً بك في M_A Store، كيف يمكنني مساعدتك؟";
+                        let botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "أهلاً بك في M_A Store، كيف يمكنني مساعدتك؟";
+
+                        // تنظيف الرد لو فيه مسافات زايدة
+                        botReply = botReply.trim();
 
                         // إرسال الرد عبر Messenger API
                         await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${process.env.PAGE_ACCESS_TOKEN}`, {
