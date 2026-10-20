@@ -36,15 +36,15 @@ app.post('/webhook', async (req, res) => {
                     console.log(`رسالة من الزبون: ${userMessage}`);
 
                     try {
-                        // استخدام موديل gemini-pro المضمون والمستقر مع الـ API Keys
-                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                        // تعديل الرابط لاستخدام الإصدار v1 والموديل المدعوم gemini-1.5-flash
+                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [
                                     {
                                         role: "user",
-                                        parts: [{ text: `أنت مساعد مبيعات لمتجر M_A Store. سعر المنتج 115 دينار وموقعنا في قصر الأخيار - العلوص. أجب على هذا السؤال باختصار وذكاء: ${userMessage}` }]
+                                        parts: [{ text: `أنت مساعد مبيعات ذكي لمتجر M_A Store في قصر الأخيار - العلوص. سعر المنتج 115 دينار. أجب على سؤال الزبون باختصار وذكاء: ${userMessage}` }]
                                     }
                                 ]
                             })
