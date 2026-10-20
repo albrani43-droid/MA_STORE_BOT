@@ -1,12 +1,16 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(bodyParser.json());
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+
+// إعداد الذكاء الاصطناعي
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // 1. التحقق من الـ Webhook
 app.get('/webhook', (req, res) => {
@@ -21,14 +25,14 @@ app.get('/webhook', (req, res) => {
     }
 });
 
-// 2. استقبال الرسائل والتعليقات والرد عليها
+// 2. استقبال الرسائل والتعليقات والرد عليها عبر الذكاء الاصطناعي
 app.post('/webhook', async (req, res) => {
     const body = req.body;
 
     if (body.object === 'page') {
         body.entry.forEach(async (entry) => {
             
-            // أ) التعامل مع رسائل الماسنجر الخاصة
+            // أ) رسائل الماسنجر الخاصة (رد ذكي بـ Gemini)
             if (entry.messaging) {
                 entry.messaging.forEach(async (event) => {
                     if (event.message && event.message.text) {
@@ -36,13 +40,13 @@ app.post('/webhook', async (req, res) => {
                         const messageText = event.message.text;
                         console.log(`رسالة خاصة من ${senderPsid}: ${messageText}`);
 
-                        // الرد التلقائي على الخاص
-                        await sendMessengerMessage(senderPsid, "أهلاً بك في M_A Store! سعر المنتج 115 دينار فقط ✨. كيف يمكنني مساعدتك؟");
+                        const aiReply = await getGeminiResponse(messageText);
+                        await sendMessengerMessage(senderPsid, aiReply);
                     }
                 });
             }
 
-            // ب) التعامل مع تعليقات المنشورات (Feed Comments)
+            // ب) تعليقات المنشورات (رد تلقائي بتعليق)
             if (entry.changes) {
                 entry.changes.forEach(async (change) => {
                     if (change.field === 'feed' && change.value.item === 'comment' && change.value.verb === 'add') {
@@ -51,8 +55,6 @@ app.post('/webhook', async (req, res) => {
                         const message = change.value.message;
                         
                         console.log(`تعليق جديد من ${commenterName}: ${message}`);
-
-                        // الرد تلقائياً بتعليق تحت المنشور
                         await replyToComment(commentId, `أهلاً بك يا ${commenterName}، تم الرد على الخاص 📩✨`);
                     }
                 });
@@ -65,7 +67,24 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-// دالة لإرسال رسالة عبر الماسنجر
+// دالة توليد الرد من Gemini
+async function getGeminiResponse(userPrompt) {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userPrompt,
+            config: {
+                systemInstruction: "أنت مساعد مبيعات ذكي وودود لمتجر M_A Store في ليبيا. سعر المنتج الأساسي 115 دينار، والتوصيل لطرابلس بـ 20 دينار وباقي المدن حسب الاتفاق. أجب بأسلوب ودي وبسيط.",
+            }
+        });
+        return response.text || "أهلاً بك في M_A Store! كيف يمكنني مساعدتك؟";
+    } catch (error) {
+        console.error("خطأ في الذكاء الاصطناعي:", error);
+        return "أهلاً بك في M_A Store! سعر المنتج 115 دينار.";
+    }
+}
+
+// دالة إرسال رسالة ماسنجر
 async function sendMessengerMessage(recipientPsid, responseText) {
     try {
         await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
@@ -73,18 +92,18 @@ async function sendMessengerMessage(recipientPsid, responseText) {
             message: { text: responseText }
         });
     } catch (error) {
-        console.error("خطأ في إرسال رسالة الماسنجر:", error.response?.data || error.message);
+        console.error("خطأ في الماسنجر:", error.response?.data || error.message);
     }
 }
 
-// دالة للرد بتعليق تحت تعليق الزبون
+// دالة الرد على التعليق
 async function replyToComment(commentId, responseText) {
     try {
         await axios.post(`https://graph.facebook.com/v18.0/${commentId}/comments?access_token=${PAGE_ACCESS_TOKEN}`, {
             message: responseText
         });
     } catch (error) {
-        console.error("خطأ في الرد على التعليق:", error.response?.data || error.message);
+        console.error("خطأ في التعليق:", error.response?.data || error.message);
     }
 }
 
