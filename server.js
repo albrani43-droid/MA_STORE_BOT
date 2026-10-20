@@ -6,7 +6,6 @@ require('dotenv').config();
 const app = express();
 app.use(bodyParser.json());
 
-// تحقق من الـ Webhook الخاص بفيسبوك
 app.get('/webhook', (req, res) => {
     const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "ma_store_verify_token";
     const mode = req.query['hub.mode'];
@@ -23,7 +22,6 @@ app.get('/webhook', (req, res) => {
     }
 });
 
-// استقبال الرسائل من فيسبوك
 app.post('/webhook', async (req, res) => {
     const body = req.body;
 
@@ -35,35 +33,40 @@ app.post('/webhook', async (req, res) => {
 
                 if (webhookEvent.message && webhookEvent.message.text) {
                     const userMessage = webhookEvent.message.text;
-                    console.log(`رسالة من ${senderPsid}: ${userMessage}`);
+                    console.log(`رسالة من الزبون: ${userMessage}`);
 
                     try {
-                        // استدعاء نموذج gemini-2.5-flash مع توجيه ذكي للمتجر
-                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [
                                     {
                                         role: "user",
-                                        parts: [{ text: `أنت مساعد مبيعات لمتجر M_A Store في قصر الأخيار - العلوص. سعر المنتج 115 دينار. أجب على سؤال الزبون باختصار وذكاء وبدون تكرار: ${userMessage}` }]
+                                        parts: [{ text: `أنت مساعد مبيعات لمتجر M_A Store. سعر المنتج 115 دينار وموقعنا في قصر الأخيار - العلوص. أجب على هذا السؤال باختصار: ${userMessage}` }]
                                     }
                                 ]
                             })
                         });
 
                         const data = await geminiResponse.json();
-                        let botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "أهلاً بك في M_A Store، كيف يمكنني مساعدتك؟";
-                        botReply = botReply.trim();
+                        
+                        // طباعة الرد كاملاً في لوحة تحكم Render لنرى هل هناك خطأ من جوجل
+                        console.log("Google AI Response:", JSON.stringify(data, null, 2));
 
-                        // إرسال الرد عبر الماسنجر
+                        let botReply = "أهلاً بك في M_A Store، سعر المنتج 115 دينار وموقعنا في قصر الأخيار.";
+                        
+                        if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
+                            botReply = data.candidates[0].content.parts[0].text.trim();
+                        }
+
                         await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${process.env.PAGE_ACCESS_TOKEN}`, {
                             recipient: { id: senderPsid },
                             message: { text: botReply }
                         });
 
                     } catch (error) {
-                        console.error('Error generating AI response:', error);
+                        console.error('Error in AI processing:', error);
                     }
                 }
             }
