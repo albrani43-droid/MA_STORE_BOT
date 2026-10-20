@@ -36,25 +36,24 @@ app.post('/webhook', async (req, res) => {
                     console.log(`رسالة من الزبون: ${userMessage}`);
 
                     try {
-                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                        // استخدام موديل gemini-pro المضمون والمستقر مع الـ API Keys
+                        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [
                                     {
                                         role: "user",
-                                        parts: [{ text: `أنت مساعد مبيعات لمتجر M_A Store. سعر المنتج 115 دينار وموقعنا في قصر الأخيار - العلوص. أجب على هذا السؤال باختصار: ${userMessage}` }]
+                                        parts: [{ text: `أنت مساعد مبيعات لمتجر M_A Store. سعر المنتج 115 دينار وموقعنا في قصر الأخيار - العلوص. أجب على هذا السؤال باختصار وذكاء: ${userMessage}` }]
                                     }
                                 ]
                             })
                         });
 
                         const data = await geminiResponse.json();
-                        
-                        // طباعة الرد كاملاً في لوحة تحكم Render لنرى هل هناك خطأ من جوجل
                         console.log("Google AI Response:", JSON.stringify(data, null, 2));
 
-                        let botReply = "أهلاً بك في M_A Store، سعر المنتج 115 دينار وموقعنا في قصر الأخيار.";
+                        let botReply = "أهلاً بك في M_A Store، سعر المنتج 115 دينار وموقعنا في قصر الأخيار - العلوص.";
                         
                         if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
                             botReply = data.candidates[0].content.parts[0].text.trim();
