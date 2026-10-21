@@ -1,6 +1,7 @@
+
 {
-  "name": "ma-store-comments-only",
-  "version": "1.0.0",
+  "name": "ma-store-facebook-bot",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
